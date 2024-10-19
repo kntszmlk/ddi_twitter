@@ -1,33 +1,50 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-
+from selenium.webdriver.chrome.options import Options
+import csv
 import time
 
-
-driver_path = r'path\chromedriver.exe'  # Buraya ChromeDriver yolunu ekleyin
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
+driver_path = r'path\chromedriver.exe'
 service = Service(executable_path=driver_path)
 driver = webdriver.Chrome(service=service)
-search_query = input("hashtag")
-driver.get(f"https://twitter.com/search?q={search_query}&src=typed_query")
-time.sleep(25)
+
+
+driver.get("https://twitter.com/")
+time.sleep(30)
+
 last_height = driver.execute_script("return document.body.scrollHeight")
+collected_tweets = set()
 
 while True:
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)
+    time.sleep(10)
+    tweets = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="tweetText"]')
+
+    for tweet in tweets:
+        try:
+            tweet_text = tweet.find_element(By.XPATH, './/span').text
+            if tweet_text and tweet_text not in collected_tweets:  
+                collected_tweets.add(tweet_text)
+                print(tweet_text)
+        except Exception as e:
+            print("Hata:", e)
+            
     new_height = driver.execute_script("return document.body.scrollHeight")
     if new_height == last_height:
         break
     last_height = new_height
-tweets = driver.find_elements(By.XPATH, '//div[@data-testid="tweetText"]')
+    
+with open('tweets.csv', mode='w', newline='', encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Tweet Metni"]) 
+    print("Toplanan Tweet Sayısı:", len(collected_tweets))
+    for tweet_text in collected_tweets:
+        writer.writerow([tweet_text])
+        print("Yazılan Tweet:", tweet_text)
 
-for tweet in tweets:
-    tweet_text = tweet.find_element(By.XPATH, './/span').text  # İlk <span> öğesini al
-    hashtags = tweet.find_elements(By.XPATH, './/a[@role="link"]')  # Tüm etiketleri al
-    hashtags_list = [hashtag.text for hashtag in hashtags]
-    print("Tweet Metni:", tweet_text)
-    print("Hashtagler:", hashtags_list)
-    print()
 driver.quit()
